@@ -1,0 +1,42 @@
+{
+  "general_overview": [
+    {"label": "Home", "page": "app.py"}
+  ],
+  "rsv_basics": [
+    {"label": "RSV Basics", "page": "pages/1_RSV_Basics.py"}
+  ],
+  "symptom_signs": [
+    {"label": "Symptoms", "page": "pages/2_Symptoms.py"}
+  ],
+  "red_flags": [
+    {"label": "Urgent Guidance", "page": "pages/2_Symptoms.py"},
+    {"label": "Get Support", "page": "pages/7_Get_Support.py"}
+  ],
+  "eligibility_adults": [
+    {"label": "Eligibility", "page": "pages/3_Eligibility.py"}
+  ],
+  "eligibility_pregnancy": [
+    {"label": "Eligibility", "page": "pages/3_Eligibility.py"}
+  ],
+  "vaccine_timing": [
+    {"label": "Vaccination", "page": "pages/4_Vaccination.py"}
+  ],
+  "vaccine_options": [
+    {"label": "Vaccination", "page": "pages/4_Vaccination.py"}
+  ],
+  "prevention_tips": [
+    {"label": "Prevention", "page": "pages/5_Prevention.py"}
+  ],
+  "scheduling": [
+    {"label": "Scheduling", "page": "pages/6_Appointments.py"}
+  ],
+  "cost_coverage": [
+    {"label": "Scheduling", "page": "pages/6_Appointments.py"}
+  ],
+  "support_resources": [
+    {"label": "Get Support", "page": "pages/7_Get_Support.py"}
+  ],
+  "urgent_support": [
+    {"label": "Get Support", "page": "pages/7_Get_Support.py"}
+  ]
+}

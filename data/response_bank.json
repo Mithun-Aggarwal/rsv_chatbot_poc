@@ -1,0 +1,212 @@
+{
+  "intents": [
+    {
+      "intent_id": "general_overview",
+      "category": "Overview",
+      "display_name": "POC overview",
+      "user_question": "What is this RSV proof of concept?",
+      "sample_user_phrases": [
+        "What does this site do?",
+        "Explain the RSV pilot",
+        "Why was this chatbot built?"
+      ],
+      "response": "This proof of concept highlights how a digital assistant could guide users with trusted RSV information, surfaced only from an approved response bank. It is not medical advice and does not replace talking with a clinician.",
+      "next_best_intent_ids": [
+        "rsv_basics",
+        "prevention_tips"
+      ]
+    },
+    {
+      "intent_id": "rsv_basics",
+      "category": "Overview",
+      "display_name": "RSV basics",
+      "user_question": "Give me the basics on RSV",
+      "sample_user_phrases": [
+        "What is RSV?",
+        "Tell me about RSV",
+        "RSV information"
+      ],
+      "response": "Respiratory Syncytial Virus (RSV) is a common respiratory virus. This site focuses on general awareness and vaccine program navigation rather than diagnosis or treatment guidance.",
+      "next_best_intent_ids": [
+        "symptom_signs",
+        "vaccine_timing"
+      ]
+    },
+    {
+      "intent_id": "symptom_signs",
+      "category": "Symptoms",
+      "display_name": "Symptoms to watch",
+      "user_question": "What symptoms should I look for?",
+      "sample_user_phrases": [
+        "RSV symptoms",
+        "What does RSV feel like?",
+        "How do I know if I have RSV?"
+      ],
+      "response": "Common RSV symptoms can include congestion, cough, fever, or sore throat. This experience does not provide medical advice—contact a clinician for personal guidance.",
+      "next_best_intent_ids": [
+        "red_flags",
+        "prevention_tips"
+      ]
+    },
+    {
+      "intent_id": "red_flags",
+      "category": "Symptoms",
+      "display_name": "When to seek help",
+      "user_question": "When should I seek urgent care?",
+      "sample_user_phrases": [
+        "emergency symptoms",
+        "trouble breathing",
+        "Is this serious?"
+      ],
+      "response": "If someone has severe trouble breathing, bluish lips, confusion, or cannot stay hydrated, seek emergency care right away. Call local emergency services for urgent concerns.",
+      "next_best_intent_ids": [
+        "symptom_signs",
+        "support_resources"
+      ]
+    },
+    {
+      "intent_id": "eligibility_adults",
+      "category": "Eligibility",
+      "display_name": "Eligibility for adults",
+      "user_question": "Who is eligible as an older adult?",
+      "sample_user_phrases": [
+        "Am I eligible as a senior?",
+        "Older adult vaccine eligibility",
+        "Eligibility over 60"
+      ],
+      "response": "Adults 60 years and older may be eligible for RSV vaccination based on shared decision-making with a healthcare provider. This assistant only shares program navigation information.",
+      "next_best_intent_ids": [
+        "vaccine_timing",
+        "cost_coverage"
+      ]
+    },
+    {
+      "intent_id": "eligibility_pregnancy",
+      "category": "Eligibility",
+      "display_name": "Pregnancy eligibility",
+      "user_question": "Can pregnant people get vaccinated?",
+      "sample_user_phrases": [
+        "Pregnant RSV vaccine",
+        "Eligibility during pregnancy",
+        "Third trimester RSV shot"
+      ],
+      "response": "Pregnant individuals in later trimesters may be eligible for RSV vaccination depending on current guidelines and clinician advice. Discuss timing and options with a trusted provider.",
+      "next_best_intent_ids": [
+        "vaccine_timing",
+        "support_resources"
+      ]
+    },
+    {
+      "intent_id": "vaccine_timing",
+      "category": "Vaccination",
+      "display_name": "Timing and schedule",
+      "user_question": "When should the RSV vaccine be given?",
+      "sample_user_phrases": [
+        "When to get RSV shot",
+        "Best time for RSV vaccine",
+        "RSV season timing"
+      ],
+      "response": "Clinicians consider local RSV seasonality and personal risk when recommending vaccination timing. Use this site to prepare for a provider conversation about the best window for you.",
+      "next_best_intent_ids": [
+        "vaccine_options",
+        "scheduling"
+      ]
+    },
+    {
+      "intent_id": "vaccine_options",
+      "category": "Vaccination",
+      "display_name": "Vaccine options",
+      "user_question": "What vaccine options are available?",
+      "sample_user_phrases": [
+        "Which RSV vaccines exist?",
+        "Are there different RSV shots?",
+        "RSV product options"
+      ],
+      "response": "Several FDA-approved RSV vaccines are available for specific populations. A healthcare professional can advise which option fits your situation. This assistant only shares high-level program details.",
+      "next_best_intent_ids": [
+        "cost_coverage",
+        "scheduling"
+      ]
+    },
+    {
+      "intent_id": "prevention_tips",
+      "category": "Prevention",
+      "display_name": "Prevention tips",
+      "user_question": "How can I reduce my RSV risk?",
+      "sample_user_phrases": [
+        "Prevent RSV",
+        "RSV safety tips",
+        "Reduce risk"
+      ],
+      "response": "Hand washing, masking in crowded settings, staying home when sick, and cleaning high-touch surfaces can reduce RSV spread. Pair these steps with guidance from your care team.",
+      "next_best_intent_ids": [
+        "symptom_signs",
+        "vaccine_timing"
+      ]
+    },
+    {
+      "intent_id": "scheduling",
+      "category": "Appointments",
+      "display_name": "Scheduling",
+      "user_question": "How do I schedule an appointment?",
+      "sample_user_phrases": [
+        "Book an appointment",
+        "Schedule RSV shot",
+        "Set up a visit"
+      ],
+      "response": "Use your clinic's scheduling tools or call the office to request an RSV vaccine discussion. Bring your questions and share any health concerns with the care team.",
+      "next_best_intent_ids": [
+        "cost_coverage",
+        "support_resources"
+      ]
+    },
+    {
+      "intent_id": "cost_coverage",
+      "category": "Appointments",
+      "display_name": "Coverage and cost",
+      "user_question": "How much does vaccination cost?",
+      "sample_user_phrases": [
+        "Is RSV vaccine covered?",
+        "Insurance questions",
+        "Cost of RSV shot"
+      ],
+      "response": "Coverage depends on your insurance plan and eligibility. Contact your insurer or clinic billing team to confirm any costs before your visit.",
+      "next_best_intent_ids": [
+        "scheduling",
+        "support_resources"
+      ]
+    },
+    {
+      "intent_id": "support_resources",
+      "category": "Support",
+      "display_name": "Support resources",
+      "user_question": "Where can I get support?",
+      "sample_user_phrases": [
+        "Who can help me?",
+        "Community resources",
+        "Support for RSV questions"
+      ],
+      "response": "Connect with your primary care team for personal questions. Trusted public health sites and local community organizations can also provide RSV information and logistics support.",
+      "next_best_intent_ids": [
+        "prevention_tips",
+        "scheduling"
+      ]
+    },
+    {
+      "intent_id": "urgent_support",
+      "category": "Support",
+      "display_name": "Emergency guidance",
+      "user_question": "I think this is an emergency",
+      "sample_user_phrases": [
+        "Call 911?",
+        "Someone can't breathe",
+        "Help it's urgent"
+      ],
+      "response": "For emergencies, contact local emergency services immediately or go to the nearest emergency department. This assistant cannot provide real-time medical help.",
+      "next_best_intent_ids": [
+        "red_flags",
+        "support_resources"
+      ]
+    }
+  ]
+}
