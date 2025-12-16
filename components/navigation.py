@@ -21,4 +21,5 @@ def render_top_nav(active_label: Optional[str] = None):
     cols = st.columns(len(NAV_ITEMS))
     for col, item in zip(cols, NAV_ITEMS):
         with col:
-            st.page_link(item["page"], label=item["label"], icon="" if item["label"] != active_label else "👉")
+            icon = "👉" if item["label"] == active_label else None
+            st.page_link(item["page"], label=item["label"], icon=icon)
