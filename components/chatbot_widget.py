@@ -19,7 +19,6 @@ def _init_state():
     st.session_state.setdefault("last_intent_id", None)
     st.session_state.setdefault("guided_auto_prompts", {})
     st.session_state.setdefault("chat_panel_open", False)
-    st.session_state.setdefault("api_status", None)
     st.session_state.setdefault("api_status", {"state": "unknown", "message": "Status not checked yet."})
     st.session_state.setdefault("api_status_checked_at", None)
     st.session_state.setdefault("last_mode", st.session_state.get("chat_mode", "Guided"))
