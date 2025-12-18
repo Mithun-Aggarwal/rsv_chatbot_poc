@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from pathlib import Path
 
@@ -46,6 +46,21 @@ class IntentClassifier:
 
     def has_api_key(self) -> bool:
         return self.client is not None
+
+    def validate_connection(self) -> Tuple[str, str]:
+        """Lightweight check to confirm API key presence and connectivity."""
+
+        if not self.api_key:
+            return "missing", "OPENAI_API_KEY is not configured."
+
+        if not self.client:
+            return "error", "OpenAI client is unavailable."
+
+        try:
+            self.client.models.list()
+            return "ok", "API key loaded and reachable."
+        except Exception as exc:  # noqa: BLE001
+            return "error", f"OpenAI validation failed: {exc}"
 
     def _hard_rule_override(self, message: str) -> Optional[ClassificationResult]:
         lowered = message.lower()

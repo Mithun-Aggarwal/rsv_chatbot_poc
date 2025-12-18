@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Dict, List
 from urllib.parse import urlencode
 
@@ -18,6 +19,9 @@ def _init_state():
     st.session_state.setdefault("last_intent_id", None)
     st.session_state.setdefault("guided_auto_prompts", {})
     st.session_state.setdefault("chat_panel_open", False)
+    st.session_state.setdefault("api_status", {"state": "unknown", "message": "Status not checked yet."})
+    st.session_state.setdefault("api_status_checked_at", None)
+    st.session_state.setdefault("last_mode", st.session_state.get("chat_mode", "Guided"))
 
 
 def _render_history(history_key: str):
@@ -134,6 +138,7 @@ def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier, pa
     """Render chatbot entrypoints with a reusable floating panel that supports both modes."""
 
     _init_state()
+    _update_api_status(classifier)
     _sync_mode_with_query_params()
     st.session_state["response_bank"] = response_bank
 
@@ -201,7 +206,10 @@ def _render_panel_shell(response_bank: ResponseBank, classifier: IntentClassifie
                 st.query_params["panel"] = "closed"
                 return
 
+        _render_api_status(classifier)
+
         mode_disabled = not classifier.has_api_key()
+        previous_mode = st.session_state.get("last_mode", st.session_state.get("chat_mode", "Guided"))
         st.caption("Switch modes while keeping your conversation history intact.")
         mode = st.radio(
             "Choose a mode",
@@ -213,6 +221,11 @@ def _render_panel_shell(response_bank: ResponseBank, classifier: IntentClassifie
             key="chat-panel-mode",
         )
         st.session_state["chat_mode"] = mode if not (mode == "Free text" and mode_disabled) else "Guided"
+        mode_changed = previous_mode != st.session_state["chat_mode"]
+        st.session_state["last_mode"] = st.session_state["chat_mode"]
+
+        if st.session_state["chat_mode"] == "Free text" and mode_changed:
+            _update_api_status(classifier, force=True)
 
         if mode_disabled:
             st.info("Free-text mode is disabled because OPENAI_API_KEY is not set. Guided questions remain available.")
@@ -288,3 +301,51 @@ def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier)
     if st.session_state.get("last_intent_id"):
         next_best = response_bank.get_next_best(st.session_state["last_intent_id"])
         _render_next_best(next_best, response_bank, "free_history")
+
+
+def _render_api_status(classifier: IntentClassifier):
+    status = st.session_state.get("api_status", {})
+    checked_at = st.session_state.get("api_status_checked_at")
+    state = status.get("state", "unknown")
+    message = status.get("message", "")
+
+    badges = {
+        "ok": {"label": "API key loaded", "color": "#16a085", "emoji": "✅"},
+        "missing": {"label": "Missing key", "color": "#b03a2e", "emoji": "⚠️"},
+        "error": {"label": "Connection error", "color": "#d35400", "emoji": "❌"},
+        "unknown": {"label": "Not checked", "color": "#7f8c8d", "emoji": "ℹ️"},
+    }
+
+    badge = badges.get(state, badges["unknown"])
+    cols = st.columns([3, 1])
+    with cols[0]:
+        st.markdown(
+            f"""
+            <div style="padding: 0.75rem 0.85rem; border-radius: 0.75rem; background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.15rem;">
+                    <span style="font-size: 1rem;">{badge['emoji']}</span>
+                    <span style="background:{badge['color']}; color: white; padding: 0.2rem 0.55rem; border-radius: 999px; font-weight: 700; font-size: 0.85rem;">{badge['label']}</span>
+                </div>
+                <div style="font-size: 0.9rem; color: #2c3e50;">{message}</div>
+                <div style="font-size: 0.8rem; color: #7f8c8d;">{('Last checked ' + checked_at) if checked_at else 'Check status to confirm connectivity.'}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with cols[1]:
+        if st.button("Re-check", key="recheck-api-status", help="Validate the API key and connectivity", use_container_width=True):
+            _update_api_status(classifier, force=True)
+
+
+def _update_api_status(classifier: IntentClassifier, *, force: bool = False):
+    status = st.session_state.get("api_status", {"state": "unknown", "message": "Status not checked yet."})
+    if not force and status.get("state") in {"ok", "missing", "error"}:
+        return status
+
+    with st.spinner("Checking OpenAI connectivity..."):
+        state, message = classifier.validate_connection()
+
+    st.session_state["api_status"] = {"state": state, "message": message}
+    st.session_state["api_status_checked_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    return st.session_state["api_status"]
