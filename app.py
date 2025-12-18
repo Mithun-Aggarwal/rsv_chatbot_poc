@@ -23,6 +23,11 @@ with col1:
         Use guided mode to browse approved questions, or switch to free text (with an API key) to
         classify your own questions into the response bank. All answers come from structured content
         in the data folder; no medical advice is generated.
+        
+        **What to explore**
+        - Try the guided bot for page-specific answers tailored to where you are in the site.
+        - Enable free text with your API key to test the classifier and see confidence-based routing.
+        - Follow deep links in the assistant replies to jump to the most relevant section.
         """
     )
     st.info("Keep your OPENAI_API_KEY in the environment to enable free-text classification.")
@@ -35,7 +40,8 @@ with col2:
         - Guided and free-text chatbot modes.
         - Deep links into each page for quick navigation.
         - Safe defaults if the API key is missing.
+        - Floating launchers keep guided and free-text bots within easy reach.
         """
     )
 
-render_chatbot(response_bank, classifier)
+render_chatbot(response_bank, classifier, page_path="app.py")

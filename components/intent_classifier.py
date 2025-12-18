@@ -4,6 +4,24 @@ import json
 import os
 from typing import Dict, Optional
 
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - fallback when dependency isn't installed
+    def load_dotenv() -> bool:
+        env_path = Path(".env")
+        if not env_path.exists():
+            return False
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+        return True
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 
@@ -19,6 +37,7 @@ class ClassificationResult(BaseModel):
 
 class IntentClassifier:
     def __init__(self, response_bank: ResponseBank, model: str = "gpt-4.1-mini", confidence_threshold: float = 0.7):
+        load_dotenv()
         self.response_bank = response_bank
         self.model = model
         self.confidence_threshold = confidence_threshold
