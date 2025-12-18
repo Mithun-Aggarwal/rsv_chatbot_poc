@@ -17,6 +17,7 @@ def _init_state():
     st.session_state.setdefault("free_history", [])
     st.session_state.setdefault("last_intent_id", None)
     st.session_state.setdefault("guided_auto_prompts", {})
+    st.session_state.setdefault("chat_panel_open", False)
 
 
 def _render_history(history_key: str):
@@ -65,13 +66,17 @@ def _sync_mode_with_query_params():
     normalized = requested_mode.lower()
     if normalized in {"guided", "guide"}:
         st.session_state["chat_mode"] = "Guided"
+        st.session_state["chat_panel_open"] = True
     elif normalized in {"free", "free-text", "unguided"}:
         st.session_state["chat_mode"] = "Free text"
+        st.session_state["chat_panel_open"] = True
+    elif normalized in {"open", "panel"}:
+        st.session_state["chat_panel_open"] = True
 
 
 def _build_mode_link(mode: str) -> str:
     params = dict(st.query_params)
-    params.update({"chat": mode})
+    params.update({"chat": mode, "panel": "open"})
     return f"?{urlencode(params, doseq=True)}"
 
 
@@ -108,46 +113,114 @@ def _render_mode_launchers():
                 bottom: 0.75rem;
                 font-size: 0.9rem;
             }}
-            .chat-fab.guided {{ left: 0.75rem; }}
-            .chat-fab.free {{ right: 0.75rem; }}
+            .chat-fab.guided {{ left: 0.75rem; right: auto; }}
+            .chat-fab.free {{ right: 0.75rem; left: auto; }}
+        }}
+        @media (max-width: 420px) {{
+            .chat-fab {{
+                padding: 0.65rem 0.85rem;
+                font-size: 0.85rem;
+            }}
         }}
         </style>
-        <a class="chat-fab guided" href="{guided_link}" title="Guided chatbot">🧭 Guided bot</a>
-        <a class="chat-fab free" href="{free_link}" title="Free text chatbot">✨ Free-text bot</a>
+        <a class="chat-fab guided" href="{guided_link}" aria-label="Open guided chat panel" title="Open guided chatbot panel">🧭 Guided chat</a>
+        <a class="chat-fab free" href="{free_link}" aria-label="Open free-text chat panel" title="Open free-text chatbot panel">✨ Free-text chat</a>
         """,
         unsafe_allow_html=True,
     )
 
 
 def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None = None):
-    """Render chatbot widget with guided and free-text modes."""
+    """Render chatbot entrypoints with a reusable floating panel that supports both modes."""
 
     _init_state()
     _sync_mode_with_query_params()
     st.session_state["response_bank"] = response_bank
 
-    st.divider()
-    st.subheader("RSV Assistant")
-
     _render_mode_launchers()
 
-    mode_disabled = not classifier.has_api_key()
-    mode = st.radio(
-        "Choose a mode",
-        ["Guided", "Free text"],
-        horizontal=True,
-        index=0 if st.session_state.get("chat_mode") == "Guided" or mode_disabled else 1,
-        disabled=False,
+    _sync_panel_visibility()
+    _render_panel_shell(response_bank, classifier, page_path)
+
+
+def _sync_panel_visibility():
+    panel_param = st.query_params.get("panel", [None])
+    panel_param = panel_param[-1] if isinstance(panel_param, list) else panel_param
+    if panel_param:
+        st.session_state["chat_panel_open"] = panel_param.lower() == "open"
+
+
+def _render_panel_shell(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None):
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {{
+            width: min(420px, 90vw) !important;
+        }}
+        section[data-testid="stSidebar"] .block-container {{
+            padding: 1rem;
+            gap: 0.75rem;
+        }}
+        section[data-testid="stSidebar"] h2 {{
+            margin-bottom: 0;
+        }}
+        section[data-testid="stSidebar"] .mode-toggle .stRadio [role="radiogroup"] {{
+            width: 100%;
+        }}
+        section[data-testid="stSidebar"] .mode-toggle label {{
+            font-weight: 600;
+        }}
+        @media (max-width: 640px) {{
+            section[data-testid="stSidebar"] {{
+                width: min(100vw, 380px) !important;
+            }}
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-    st.session_state["chat_mode"] = mode if not (mode == "Free text" and mode_disabled) else "Guided"
 
-    if mode_disabled:
-        st.info("Free-text mode is disabled because OPENAI_API_KEY is not set. Guided questions remain available.")
+    if not st.session_state.get("chat_panel_open"):
+        st.markdown(
+            """
+            <style>
+            section[data-testid="stSidebar"] { display: none; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
 
-    if st.session_state["chat_mode"] == "Guided":
-        _render_guided(response_bank, page_path)
-    else:
-        _render_free_text(response_bank, classifier)
+    with st.sidebar:
+        header_cols = st.columns([1, 1])
+        with header_cols[0]:
+            st.markdown("### RSV Assistant", help="Guided and free-text responses with deep links.")
+        with header_cols[1]:
+            if st.button("Close panel", key="close-chat-panel", help="Collapse the chat panel", use_container_width=True):
+                st.session_state["chat_panel_open"] = False
+                st.query_params["panel"] = "closed"
+                return
+
+        mode_disabled = not classifier.has_api_key()
+        st.caption("Switch modes while keeping your conversation history intact.")
+        mode = st.radio(
+            "Choose a mode",
+            ["Guided", "Free text"],
+            horizontal=True,
+            index=0 if st.session_state.get("chat_mode") == "Guided" or mode_disabled else 1,
+            disabled=False,
+            label_visibility="visible",
+            key="chat-panel-mode",
+        )
+        st.session_state["chat_mode"] = mode if not (mode == "Free text" and mode_disabled) else "Guided"
+
+        if mode_disabled:
+            st.info("Free-text mode is disabled because OPENAI_API_KEY is not set. Guided questions remain available.")
+
+        if st.session_state["chat_mode"] == "Guided":
+            _render_guided(response_bank, page_path)
+        else:
+            _render_free_text(response_bank, classifier)
 
 
 def _render_guided(response_bank: ResponseBank, page_path: str | None):
