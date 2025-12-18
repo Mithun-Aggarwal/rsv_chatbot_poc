@@ -12,7 +12,7 @@ from components.response_bank import ResponseBank
 FALLBACK_RESPONSE = "I could not find a matching topic in the response bank. Try a guided question or rephrase."
 
 
-def _init_state():
+def _init_state() -> None:
     st.session_state.setdefault("chat_mode", "Guided")
     st.session_state.setdefault("guided_history", [])
     st.session_state.setdefault("free_history", [])
@@ -24,7 +24,7 @@ def _init_state():
     st.session_state.setdefault("last_mode", st.session_state.get("chat_mode", "Guided"))
 
 
-def _render_history(history_key: str):
+def _render_history(history_key: str) -> None:
     for message in st.session_state.get(history_key, []):
         with st.chat_message(message.get("role", "assistant")):
             st.write(message.get("content", ""))
@@ -33,26 +33,29 @@ def _render_history(history_key: str):
                 _render_deep_links(intent_id)
 
 
-def _append_history(history_key: str, role: str, content: str, intent_id: str | None = None):
+def _append_history(history_key: str, role: str, content: str, intent_id: str | None = None) -> None:
     st.session_state[history_key].append({"role": role, "content": content, "intent_id": intent_id})
 
 
-def _render_deep_links(intent_id: str):
+def _render_deep_links(intent_id: str) -> None:
     bank = st.session_state.get("response_bank")
     if not isinstance(bank, ResponseBank):
         return
+
     links = bank.get_page_links_for_intent(intent_id)
     if not links:
         return
+
     cols = st.columns(len(links))
     for col, link in zip(cols, links):
         with col:
             st.page_link(link["page"], label=f"Go to {link['label']}", icon="➡️")
 
 
-def _render_next_best(next_best: List[Dict], response_bank: ResponseBank, history_key: str):
+def _render_next_best(next_best: List[Dict], response_bank: ResponseBank, history_key: str) -> None:
     if not next_best:
         return
+
     st.caption("Next best questions")
     cols = st.columns(len(next_best))
     for col, intent in zip(cols, next_best):
@@ -62,22 +65,27 @@ def _render_next_best(next_best: List[Dict], response_bank: ResponseBank, histor
                 st.session_state["last_intent_id"] = intent["intent_id"]
 
 
-def _sync_mode_with_query_params():
+def _sync_mode_with_query_params() -> None:
+    """Update chat mode and panel visibility based on URL query parameters."""
+
     requested_mode = st.query_params.get("chat", [None])
     requested_mode = requested_mode[-1] if isinstance(requested_mode, list) else requested_mode
+    if requested_mode:
+        normalized = requested_mode.lower()
+        if normalized in {"guided", "guide"}:
+            st.session_state["chat_mode"] = "Guided"
+            st.session_state["chat_panel_open"] = True
+        elif normalized in {"free", "free-text", "unguided"}:
+            st.session_state["chat_mode"] = "Free text"
+            st.session_state["chat_panel_open"] = True
+
     panel_param = st.query_params.get("panel", [None])
     panel_param = panel_param[-1] if isinstance(panel_param, list) else panel_param
-
-    normalized_mode = requested_mode.lower() if isinstance(requested_mode, str) else None
-    if normalized_mode in {"guided", "guide"}:
-        st.session_state["chat_mode"] = "Guided"
-    elif normalized_mode in {"free", "free-text", "unguided"}:
-        st.session_state["chat_mode"] = "Free text"
-
     if panel_param:
-        st.session_state["chat_panel_open"] = panel_param.lower() == "open"
-    elif normalized_mode in {"guided", "guide", "free", "free-text", "unguided", "open", "panel"}:
-        st.session_state["chat_panel_open"] = True
+        if panel_param.lower() == "open":
+            st.session_state["chat_panel_open"] = True
+        elif panel_param.lower() == "closed":
+            st.session_state["chat_panel_open"] = False
 
 
 def _build_mode_link(mode: str) -> str:
@@ -86,7 +94,7 @@ def _build_mode_link(mode: str) -> str:
     return f"?{urlencode(params, doseq=True)}"
 
 
-def _render_mode_launchers():
+def _render_mode_launchers() -> None:
     guided_link = _build_mode_link("guided")
     free_link = _build_mode_link("free")
     st.markdown(
@@ -119,18 +127,24 @@ def _render_mode_launchers():
                 bottom: 0.75rem;
                 font-size: 0.9rem;
             }}
-            .chat-fab.guided {{ left: 0.75rem; }}
-            .chat-fab.free {{ right: 0.75rem; }}
+            .chat-fab.guided {{ left: 0.75rem; right: auto; }}
+            .chat-fab.free {{ right: 0.75rem; left: auto; }}
+        }}
+        @media (max-width: 420px) {{
+            .chat-fab {{
+                padding: 0.65rem 0.85rem;
+                font-size: 0.85rem;
+            }}
         }}
         </style>
-        <a class="chat-fab guided" href="{guided_link}" title="Guided chatbot">🧭 Guided bot</a>
-        <a class="chat-fab free" href="{free_link}" title="Free text chatbot">✨ Free-text bot</a>
+        <a class="chat-fab guided" href="{guided_link}" aria-label="Open guided chat panel" title="Open guided chatbot panel">🧭 Guided chat</a>
+        <a class="chat-fab free" href="{free_link}" aria-label="Open free-text chat panel" title="Open free-text chatbot panel">✨ Free-text chat</a>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None = None):
+def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None = None) -> None:
     """Render chatbot entrypoints with a reusable floating panel that supports both modes."""
 
     _init_state()
@@ -144,14 +158,14 @@ def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier, pa
     _render_panel_shell(response_bank, classifier, page_path)
 
 
-def _sync_panel_visibility():
+def _sync_panel_visibility() -> None:
     panel_param = st.query_params.get("panel", [None])
     panel_param = panel_param[-1] if isinstance(panel_param, list) else panel_param
     if panel_param:
         st.session_state["chat_panel_open"] = panel_param.lower() == "open"
 
 
-def _render_panel_shell(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None):
+def _render_panel_shell(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None) -> None:
     st.markdown(
         """
         <style>
@@ -232,7 +246,7 @@ def _render_panel_shell(response_bank: ResponseBank, classifier: IntentClassifie
             _render_free_text(response_bank, classifier)
 
 
-def _render_guided(response_bank: ResponseBank, page_path: str | None):
+def _render_guided(response_bank: ResponseBank, page_path: str | None) -> None:
     page_intent = response_bank.get_primary_intent_for_page(page_path) or (response_bank.intents[0] if response_bank.intents else None)
 
     if page_intent:
@@ -262,17 +276,18 @@ def _render_guided(response_bank: ResponseBank, page_path: str | None):
         _render_next_best(next_best, response_bank, "guided_history")
 
 
-def _handle_intent(intent: Dict, history_key: str, response_bank: ResponseBank):
+def _handle_intent(intent: Dict, history_key: str, response_bank: ResponseBank) -> None:
     question = intent.get("user_question", intent.get("display_name", "Question"))
     _append_history(history_key, "user", question)
     answer = intent.get("response", FALLBACK_RESPONSE)
     _append_history(history_key, "assistant", answer, intent_id=intent.get("intent_id"))
 
 
-def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier):
+def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier) -> None:
     st.caption("Type your own question. We classify it to an approved intent and respond only from the response bank.")
     if not classifier.has_api_key():
         st.info("Add your OPENAI_API_KEY to a local .env file (see .env.example) and restart to enable free text.")
+
     user_input = st.text_input("Your question", placeholder="Ask about RSV eligibility, timing, or logistics")
     if st.button("Send", disabled=not classifier.has_api_key() or not user_input.strip()):
         _append_history("free_history", "user", user_input.strip())
@@ -301,7 +316,7 @@ def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier)
         _render_next_best(next_best, response_bank, "free_history")
 
 
-def _render_api_status(classifier: IntentClassifier):
+def _render_api_status(classifier: IntentClassifier) -> None:
     status = st.session_state.get("api_status", {})
     checked_at = st.session_state.get("api_status_checked_at")
     state = status.get("state", "unknown")
@@ -336,7 +351,7 @@ def _render_api_status(classifier: IntentClassifier):
             _update_api_status(classifier, force=True)
 
 
-def _update_api_status(classifier: IntentClassifier, *, force: bool = False):
+def _update_api_status(classifier: IntentClassifier, *, force: bool = False) -> Dict[str, str]:
     status = st.session_state.get("api_status", {"state": "unknown", "message": "Status not checked yet."})
     if not force and status.get("state") in {"ok", "missing", "error"}:
         return status

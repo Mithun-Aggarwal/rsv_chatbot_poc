@@ -57,6 +57,17 @@ class IntentClassifier:
     def has_api_key(self) -> bool:
         return self.client is not None
 
+    def _load_env_file(self, path: Path | str = ".env") -> None:
+        env_path = Path(path)
+        if not env_path.exists():
+            return
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
     def check_connectivity(self) -> Dict[str, str | bool]:
         if not self.client:
             self._last_connectivity_ok = False
@@ -127,7 +138,7 @@ class IntentClassifier:
                     intent_id=target_intent,
                     confidence=1.0,
                     slots={},
-                    rationale=f"Hard rule matched phrase '{term}'"
+                    rationale=f"Hard rule matched phrase '{term}'",
                 )
         return None
 
@@ -136,7 +147,7 @@ class IntentClassifier:
             "You classify user RSV questions into intents and never provide medical advice.",
             "Select the best intent_id from the approved list. If nothing fits, return __NO_MATCH__.",
             "Use only the JSON schema supplied and avoid additional text.",
-            "Allowed intents:"
+            "Allowed intents:",
         ]
         for intent in self.response_bank.intents:
             lines.append(
@@ -158,7 +169,7 @@ class IntentClassifier:
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale="Add an OPENAI_API_KEY to a local .env file or environment variable, then restart the app."
+                rationale="Add an OPENAI_API_KEY to a local .env file or environment variable, then restart the app.",
             )
 
         system_prompt = self._build_system_prompt()
@@ -190,42 +201,42 @@ class IntentClassifier:
                     intent_id="__NO_MATCH__",
                     confidence=0.0,
                     slots={},
-                    rationale=f"OpenAI call failed: {exc}"
+                    rationale=f"OpenAI call failed: {exc}",
                 )
         except AuthenticationError:
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale="OpenAI rejected the API key. Double-check OPENAI_API_KEY in your environment or .env file."
+                rationale="OpenAI rejected the API key. Double-check OPENAI_API_KEY in your environment or .env file.",
             )
         except (APIConnectionError, APITimeoutError):
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale="Unable to reach OpenAI. Check your internet/VPN connection and try again."
+                rationale="Unable to reach OpenAI. Check your internet/VPN connection and try again.",
             )
         except APIStatusError as exc:
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale=f"OpenAI request failed ({exc.status_code}). Please try again shortly."
+                rationale=f"OpenAI request failed ({exc.status_code}). Please try again shortly.",
             )
         except OpenAIError as exc:
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale=f"OpenAI call failed: {exc}"
+                rationale=f"OpenAI call failed: {exc}",
             )
         except Exception as exc:  # noqa: BLE001
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale=f"Unexpected OpenAI error: {exc}"
+                rationale=f"Unexpected OpenAI error: {exc}",
             )
 
         try:
@@ -235,7 +246,7 @@ class IntentClassifier:
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale="Could not parse model output"
+                rationale="Could not parse model output",
             )
 
         allowed = set(self.response_bank.get_allowed_intent_ids())
@@ -244,7 +255,7 @@ class IntentClassifier:
                 intent_id="__NO_MATCH__",
                 confidence=candidate.confidence,
                 slots=candidate.slots,
-                rationale="Below confidence threshold or invalid intent"
+                rationale="Below confidence threshold or invalid intent",
             )
 
         return candidate
