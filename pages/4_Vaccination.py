@@ -16,11 +16,17 @@ render_top_nav(active_label="Vaccination")
 
 st.title("Vaccination Details")
 
-st.write(
+st.markdown(
     """
-    Explore high-level vaccination details, such as timing considerations and available products. All
-    answers shown here originate from the approved response bank and avoid personal medical guidance.
+    Explore high-level vaccination details, such as timing considerations and available products.
+
+    **Highlights on this page**
+    - Context on seasonal timing and how that affects planning with a clinician.
+    - A quick primer on product differences without endorsing or recommending a specific option.
+    - Links back to eligibility and appointment logistics so you can complete next steps.
+
+    All answers shown here originate from the approved response bank and avoid personal medical guidance.
     """
 )
 
-render_chatbot(response_bank, classifier)
+render_chatbot(response_bank, classifier, page_path="pages/4_Vaccination.py")
