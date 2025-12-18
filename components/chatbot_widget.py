@@ -292,7 +292,8 @@ def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier)
         if not classifier.has_api_key():
             st.warning("Free text requests need an OpenAI API key. Add it to a local .env file and restart the app.")
         elif result.intent_id == "__NO_MATCH__":
-            st.warning("The classifier could not match your question with enough confidence. Try rephrasing or use guided mode.")
+            fallback_reason = result.rationale or "The classifier could not match your question with enough confidence. Try rephrasing or use guided mode."
+            st.warning(fallback_reason)
 
     st.markdown("---")
     st.caption("Conversation")

@@ -16,9 +16,14 @@ This Streamlit proof of concept demonstrates a dual-mode RSV chatbot (guided + f
    pip install -r requirements.txt
    ```
 3. (Optional) Add your OpenAI API key to enable free-text classification:
-   ```bash
-   export OPENAI_API_KEY="sk-..."
-   ```
+   - Create a local `.env` file in the project root (same folder as `app.py`) that contains:
+     ```bash
+     OPENAI_API_KEY="sk-..."
+     ```
+   - Alternatively, export the variable in your shell:
+     ```bash
+     export OPENAI_API_KEY="sk-..."
+     ```
 
 ## Run
 Launch Streamlit from the repository root:
@@ -35,3 +40,10 @@ The app starts on the home page and exposes navigation links to all additional p
 - `components/navigation.py` renders the top navigation bar on every page.
 
 Free-text mode strictly classifies the user's message to an approved intent and replies with the response bank content for that intent; it never generates new medical advice.
+
+### Free-text connectivity indicator
+- Use the **“API status”** badge in the chatbot panel to verify connectivity.
+- States:
+  - ✅ **API key loaded**: the key is present and reachable.
+  - ⚠️ **Missing key**: add `OPENAI_API_KEY` to `.env` (or export it) and restart.
+  - ❌ **Connection error**: authentication or network failed; confirm the key value and check network/VPN access, then re-check.
