@@ -4,10 +4,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
 from typing import Dict, Optional, Tuple
-
-from pathlib import Path
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ValidationError
@@ -40,8 +37,6 @@ class ClassificationResult(BaseModel):
 
 
 class IntentClassifier:
-    def __init__(self, response_bank: ResponseBank, model: str = "gpt-4.1-mini", confidence_threshold: float = 0.7):
-        self._load_env_file()
     def __init__(
         self,
         response_bank: ResponseBank,
@@ -54,22 +49,10 @@ class IntentClassifier:
         self.model = model
         self.confidence_threshold = confidence_threshold
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.client: Optional[OpenAI] = OpenAI(api_key=self.api_key) if self.api_key else None
+        self.client: Optional[OpenAI] = client or (OpenAI(api_key=self.api_key) if self.api_key else None)
         self._last_connectivity_check: Optional[datetime] = None
         self._last_connectivity_ok: Optional[bool] = None
         self._last_connectivity_message: Optional[str] = None
-
-    def _load_env_file(self, path: Path | str = ".env") -> None:
-        env_path = Path(path)
-        if not env_path.exists():
-            return
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#") or "=" not in stripped:
-                continue
-            key, value = stripped.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
-        self.client: Optional[OpenAI] = client or (OpenAI(api_key=self.api_key) if self.api_key else None)
 
     def has_api_key(self) -> bool:
         return self.client is not None
@@ -99,6 +82,7 @@ class IntentClassifier:
             "message": self._last_connectivity_message or "",
             "last_checked": self._last_connectivity_check.isoformat(),
         }
+
     def validate_connection(self) -> Tuple[str, str]:
         """Lightweight check to confirm API key presence and connectivity."""
 
@@ -208,7 +192,6 @@ class IntentClassifier:
                     slots={},
                     rationale=f"OpenAI call failed: {exc}"
                 )
-        except Exception as exc:  # noqa: BLE001
         except AuthenticationError:
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
