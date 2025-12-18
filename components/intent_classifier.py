@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, Optional
 from typing import Dict, Optional, Tuple
 
 from pathlib import Path
@@ -37,6 +40,8 @@ class ClassificationResult(BaseModel):
 
 
 class IntentClassifier:
+    def __init__(self, response_bank: ResponseBank, model: str = "gpt-4.1-mini", confidence_threshold: float = 0.7):
+        self._load_env_file()
     def __init__(
         self,
         response_bank: ResponseBank,
@@ -49,11 +54,51 @@ class IntentClassifier:
         self.model = model
         self.confidence_threshold = confidence_threshold
         self.api_key = os.getenv("OPENAI_API_KEY")
+        self.client: Optional[OpenAI] = OpenAI(api_key=self.api_key) if self.api_key else None
+        self._last_connectivity_check: Optional[datetime] = None
+        self._last_connectivity_ok: Optional[bool] = None
+        self._last_connectivity_message: Optional[str] = None
+
+    def _load_env_file(self, path: Path | str = ".env") -> None:
+        env_path = Path(path)
+        if not env_path.exists():
+            return
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
         self.client: Optional[OpenAI] = client or (OpenAI(api_key=self.api_key) if self.api_key else None)
 
     def has_api_key(self) -> bool:
         return self.client is not None
 
+    def check_connectivity(self) -> Dict[str, str | bool]:
+        if not self.client:
+            self._last_connectivity_ok = False
+            self._last_connectivity_message = "Missing OPENAI_API_KEY"
+            self._last_connectivity_check = datetime.now(timezone.utc)
+            return {
+                "ok": False,
+                "message": self._last_connectivity_message,
+                "last_checked": self._last_connectivity_check.isoformat(),
+            }
+
+        try:
+            self.client.models.list()
+            self._last_connectivity_ok = True
+            self._last_connectivity_message = "API key loaded and reachable."
+        except Exception as exc:  # noqa: BLE001
+            self._last_connectivity_ok = False
+            self._last_connectivity_message = f"OpenAI connectivity failed: {exc}"
+
+        self._last_connectivity_check = datetime.now(timezone.utc)
+        return {
+            "ok": bool(self._last_connectivity_ok),
+            "message": self._last_connectivity_message or "",
+            "last_checked": self._last_connectivity_check.isoformat(),
+        }
     def validate_connection(self) -> Tuple[str, str]:
         """Lightweight check to confirm API key presence and connectivity."""
 
@@ -135,19 +180,35 @@ class IntentClassifier:
         system_prompt = self._build_system_prompt()
 
         try:
-            response = self.client.responses.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
-                input=[
+                messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": message},
                 ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": ClassificationResult.model_json_schema(),
-                    "schema_name": "IntentClassification",
-                    "strict": True,
-                },
+                response_format={"type": "json_object"},
             )
+            parsed_text = response.choices[0].message.content or ""
+        except TypeError:
+            # Some client versions do not support response_format; fall back to plain JSON instructions.
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": message},
+                        {"role": "system", "content": "Respond with only the JSON object matching the schema."},
+                    ],
+                )
+                parsed_text = response.choices[0].message.content or ""
+            except Exception as exc:  # noqa: BLE001
+                return ClassificationResult(
+                    intent_id="__NO_MATCH__",
+                    confidence=0.0,
+                    slots={},
+                    rationale=f"OpenAI call failed: {exc}"
+                )
+        except Exception as exc:  # noqa: BLE001
         except AuthenticationError:
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
@@ -183,20 +244,6 @@ class IntentClassifier:
                 slots={},
                 rationale=f"Unexpected OpenAI error: {exc}"
             )
-
-        parsed_text = ""
-        try:
-            content_blocks = response.output[0].content  # type: ignore[attr-defined]
-            if isinstance(content_blocks, list):
-                for block in content_blocks:
-                    text = getattr(block, "text", None)
-                    if text:
-                        parsed_text += text
-        except Exception:  # noqa: BLE001
-            pass
-
-        if not parsed_text and hasattr(response, "output_text"):
-            parsed_text = response.output_text  # type: ignore[attr-defined]
 
         try:
             candidate = ClassificationResult.model_validate(json.loads(parsed_text))
