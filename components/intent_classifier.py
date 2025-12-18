@@ -5,11 +5,31 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
-from openai import OpenAI
+from pathlib import Path
+
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 
 from components.response_bank import ResponseBank
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - fallback when dependency isn't installed
+    def load_dotenv() -> bool:
+        env_path = Path(".env")
+        if not env_path.exists():
+            return False
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+        return True
 
 
 class ClassificationResult(BaseModel):
@@ -22,6 +42,14 @@ class ClassificationResult(BaseModel):
 class IntentClassifier:
     def __init__(self, response_bank: ResponseBank, model: str = "gpt-4.1-mini", confidence_threshold: float = 0.7):
         self._load_env_file()
+    def __init__(
+        self,
+        response_bank: ResponseBank,
+        model: str = "gpt-4.1-mini",
+        confidence_threshold: float = 0.7,
+        client: Optional[OpenAI] = None,
+    ):
+        load_dotenv()
         self.response_bank = response_bank
         self.model = model
         self.confidence_threshold = confidence_threshold
@@ -41,6 +69,7 @@ class IntentClassifier:
                 continue
             key, value = stripped.split("=", 1)
             os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+        self.client: Optional[OpenAI] = client or (OpenAI(api_key=self.api_key) if self.api_key else None)
 
     def has_api_key(self) -> bool:
         return self.client is not None
@@ -70,6 +99,28 @@ class IntentClassifier:
             "message": self._last_connectivity_message or "",
             "last_checked": self._last_connectivity_check.isoformat(),
         }
+    def validate_connection(self) -> Tuple[str, str]:
+        """Lightweight check to confirm API key presence and connectivity."""
+
+        if not self.api_key:
+            return "missing", "Add OPENAI_API_KEY to a local .env file or export it before restarting the app."
+
+        if not self.client:
+            return "error", "OpenAI client is unavailable."
+
+        try:
+            self.client.models.list()
+            return "ok", "API key loaded and reachable."
+        except AuthenticationError:
+            return "error", "OpenAI rejected the API key. Confirm the OPENAI_API_KEY value and organization access."
+        except (APIConnectionError, APITimeoutError):
+            return "error", "Unable to reach OpenAI. Check your network/VPN connection and retry."
+        except APIStatusError as exc:
+            return "error", f"OpenAI validation failed ({exc.status_code}). Try again or reduce request volume."
+        except OpenAIError as exc:  # pragma: no cover - defensive fallback
+            return "error", f"OpenAI validation failed: {exc}"
+        except Exception as exc:  # noqa: BLE001
+            return "error", f"Unexpected validation error: {exc}"
 
     def _hard_rule_override(self, message: str) -> Optional[ClassificationResult]:
         lowered = message.lower()
@@ -123,7 +174,7 @@ class IntentClassifier:
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
-                rationale="OPENAI_API_KEY not configured"
+                rationale="Add an OPENAI_API_KEY to a local .env file or environment variable, then restart the app."
             )
 
         system_prompt = self._build_system_prompt()
@@ -158,11 +209,40 @@ class IntentClassifier:
                     rationale=f"OpenAI call failed: {exc}"
                 )
         except Exception as exc:  # noqa: BLE001
+        except AuthenticationError:
+            return ClassificationResult(
+                intent_id="__NO_MATCH__",
+                confidence=0.0,
+                slots={},
+                rationale="OpenAI rejected the API key. Double-check OPENAI_API_KEY in your environment or .env file."
+            )
+        except (APIConnectionError, APITimeoutError):
+            return ClassificationResult(
+                intent_id="__NO_MATCH__",
+                confidence=0.0,
+                slots={},
+                rationale="Unable to reach OpenAI. Check your internet/VPN connection and try again."
+            )
+        except APIStatusError as exc:
+            return ClassificationResult(
+                intent_id="__NO_MATCH__",
+                confidence=0.0,
+                slots={},
+                rationale=f"OpenAI request failed ({exc.status_code}). Please try again shortly."
+            )
+        except OpenAIError as exc:
             return ClassificationResult(
                 intent_id="__NO_MATCH__",
                 confidence=0.0,
                 slots={},
                 rationale=f"OpenAI call failed: {exc}"
+            )
+        except Exception as exc:  # noqa: BLE001
+            return ClassificationResult(
+                intent_id="__NO_MATCH__",
+                confidence=0.0,
+                slots={},
+                rationale=f"Unexpected OpenAI error: {exc}"
             )
 
         try:
