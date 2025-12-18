@@ -16,11 +16,17 @@ render_top_nav(active_label="Get Support")
 
 st.title("Support and Escalation")
 
-st.write(
+st.markdown(
     """
-    Find links to supportive resources and understand when to escalate to emergency care. The chatbot's
-    hard-rule overrides immediately route urgent phrases to emergency guidance within the response bank.
+    Find links to supportive resources and understand when to escalate to emergency care.
+
+    **Support resources**
+    - Quick reminders to seek local emergency services for severe breathing issues.
+    - Links to general support resources that are aligned with the response bank content.
+    - Reinforcement that this assistant does not provide triage or medical advice.
+
+    The chatbot's hard-rule overrides immediately route urgent phrases to emergency guidance within the response bank.
     """
 )
 
-render_chatbot(response_bank, classifier)
+render_chatbot(response_bank, classifier, page_path="pages/7_Get_Support.py")

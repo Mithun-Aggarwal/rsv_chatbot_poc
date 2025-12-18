@@ -16,12 +16,20 @@ render_top_nav(active_label="Symptoms")
 
 st.title("Symptoms and Red Flags")
 
-st.write(
+st.markdown(
     """
     This page summarizes common RSV symptoms and reminders about when to escalate to emergency care.
-    The chatbot responses stay within approved messaging and will direct you to seek local emergency
-    services for urgent concerns.
+
+    **Symptom snapshot**
+    - Typical symptoms include congestion, cough, fever, or sore throat.
+    - Infants and older adults can progress more quickly to concerning breathing challenges.
+    - The experience never provides triage advice—it reiterates when to seek in-person help.
+
+    **Red flag reminders**
+    - Severe breathing trouble, blue lips, or chest pain should trigger emergency evaluation.
+    - The guided chatbot on this page opens with symptom guidance and points to escalation content when relevant.
+    - Deep links in each response send you to the Support page for urgent resources when appropriate.
     """
 )
 
-render_chatbot(response_bank, classifier)
+render_chatbot(response_bank, classifier, page_path="pages/2_Symptoms.py")

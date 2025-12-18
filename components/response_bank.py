@@ -54,6 +54,23 @@ class ResponseBank:
             return []
         return [self.intent_lookup[i] for i in intent.get("next_best_intent_ids", []) if i in self.intent_lookup]
 
+    def get_intents_for_page(self, page_path: Optional[str]) -> List[Dict[str, Any]]:
+        """Return intents mapped to a specific page path, ordered by the source bank."""
+        if not page_path:
+            return []
+
+        matched_ids = {intent_id for intent_id, links in self.page_map.items() for link in links if link.get("page") == page_path}
+
+        ordered_matches: List[Dict[str, Any]] = []
+        for intent in self.intents:
+            if intent["intent_id"] in matched_ids:
+                ordered_matches.append(intent)
+        return ordered_matches
+
+    def get_primary_intent_for_page(self, page_path: Optional[str]) -> Optional[Dict[str, Any]]:
+        intents = self.get_intents_for_page(page_path)
+        return intents[0] if intents else None
+
     def get_page_links_for_intent(self, intent_id: str) -> List[Dict[str, str]]:
         return self.page_map.get(intent_id, [])
 

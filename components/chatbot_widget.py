@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, List
+from urllib.parse import urlencode
 
 import streamlit as st
 
@@ -12,10 +13,12 @@ FALLBACK_RESPONSE = "I could not find a matching topic in the response bank. Try
 
 def _init_state():
     st.session_state.setdefault("chat_mode", "Guided")
-    st.session_state.setdefault("guided_category", None)
     st.session_state.setdefault("guided_history", [])
     st.session_state.setdefault("free_history", [])
     st.session_state.setdefault("last_intent_id", None)
+    st.session_state.setdefault("guided_auto_prompts", {})
+    st.session_state.setdefault("chat_panel_open", False)
+    st.session_state.setdefault("api_status", None)
 
 
 def _render_history(history_key: str):
@@ -56,11 +59,110 @@ def _render_next_best(next_best: List[Dict], response_bank: ResponseBank, histor
                 st.session_state["last_intent_id"] = intent["intent_id"]
 
 
-def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier):
+def _sync_mode_with_query_params():
+    requested_mode = st.query_params.get("chat", [None])
+    requested_mode = requested_mode[-1] if isinstance(requested_mode, list) else requested_mode
+    if requested_mode:
+        normalized = requested_mode.lower()
+        if normalized in {"guided", "guide"}:
+            st.session_state["chat_mode"] = "Guided"
+        elif normalized in {"free", "free-text", "unguided"}:
+            st.session_state["chat_mode"] = "Free text"
+
+    panel_param = st.query_params.get("panel", [None])
+    panel_param = panel_param[-1] if isinstance(panel_param, list) else panel_param
+    if panel_param and panel_param.lower() == "open":
+        st.session_state["chat_panel_open"] = True
+
+
+def _build_mode_link(mode: str) -> str:
+    params = dict(st.query_params)
+    params.update({"chat": mode, "panel": "open"})
+    return f"?{urlencode(params, doseq=True)}"
+
+
+def _render_api_status(classifier: IntentClassifier):
+    status = st.session_state.get("api_status")
+    if status is None:
+        status = classifier.check_connectivity()
+        st.session_state["api_status"] = status
+
+    cols = st.columns([3, 1])
+    indicator = "✅" if status.get("ok") else "⚠️"
+    with cols[0]:
+        st.markdown(f"**{indicator} API key status**")
+        st.caption(status.get("message", ""))
+        if status.get("last_checked"):
+            st.caption(f"Last checked {status['last_checked']}")
+    with cols[1]:
+        if st.button("Re-check", key="api-recheck"):
+            new_status = classifier.check_connectivity()
+            st.session_state["api_status"] = new_status
+            st.rerun()
+
+
+def _render_mode_launchers():
+    guided_link = _build_mode_link("guided")
+    free_link = _build_mode_link("free")
+    st.markdown(
+        f"""
+        <style>
+        .chat-fab {{
+            position: fixed;
+            bottom: 1.5rem;
+            padding: 0.75rem 1rem;
+            border-radius: 999px;
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            z-index: 9999;
+        }}
+        .chat-fab:hover {{
+            filter: brightness(1.05);
+        }}
+        .chat-fab.guided {{
+            left: 1.25rem;
+            background: linear-gradient(135deg, #1a5276, #2471a3);
+        }}
+        .chat-fab.free {{
+            right: 1.25rem;
+            background: linear-gradient(135deg, #117a65, #16a085);
+        }}
+        @media (max-width: 640px) {{
+            .chat-fab {{
+                bottom: 0.75rem;
+                font-size: 0.9rem;
+            }}
+            .chat-fab.guided {{ left: 0.75rem; }}
+            .chat-fab.free {{ right: 0.75rem; }}
+        }}
+        </style>
+        <a class="chat-fab guided" href="{guided_link}" title="Guided chatbot">🧭 Guided bot</a>
+        <a class="chat-fab free" href="{free_link}" title="Free text chatbot">✨ Free-text bot</a>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _close_chat_panel():
+    st.session_state["chat_panel_open"] = False
+    params = dict(st.query_params)
+    params.pop("panel", None)
+    st.experimental_set_query_params(**params)
+
+
+def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier, page_path: str | None = None):
     """Render chatbot widget with guided and free-text modes."""
 
     _init_state()
+    _sync_mode_with_query_params()
     st.session_state["response_bank"] = response_bank
+
+    _render_mode_launchers()
+
+    if not st.session_state.get("chat_panel_open"):
+        return
 
     st.divider()
     st.subheader("RSV Assistant")
@@ -75,38 +177,41 @@ def render_chatbot(response_bank: ResponseBank, classifier: IntentClassifier):
     )
     st.session_state["chat_mode"] = mode if not (mode == "Free text" and mode_disabled) else "Guided"
 
+    _render_api_status(classifier)
+
+    if st.button("Close chat", type="secondary"):
+        _close_chat_panel()
+        return
+
     if mode_disabled:
         st.info("Free-text mode is disabled because OPENAI_API_KEY is not set. Guided questions remain available.")
 
     if st.session_state["chat_mode"] == "Guided":
-        _render_guided(response_bank)
+        _render_guided(response_bank, page_path)
     else:
         _render_free_text(response_bank, classifier)
 
 
-def _render_guided(response_bank: ResponseBank):
-    categories = response_bank.get_categories()
-    if categories and st.session_state.get("guided_category") is None:
-        st.session_state["guided_category"] = categories[0]
+def _render_guided(response_bank: ResponseBank, page_path: str | None):
+    page_intent = response_bank.get_primary_intent_for_page(page_path) or (response_bank.intents[0] if response_bank.intents else None)
 
-    st.selectbox(
-        "Choose a topic",
-        categories,
-        key="guided_category",
-        help="Questions are generated from the response bank."
-    )
+    if page_intent:
+        st.success(
+            f"Guided mode is anchored to this page. Showing the recommended question: **{page_intent.get('user_question', page_intent.get('display_name', 'Question'))}**"
+        )
 
-    selected_category = st.session_state.get("guided_category")
-    intents = response_bank.get_intents_by_category(selected_category)
-
-    st.write("Select a question:")
-    cols = st.columns(2)
-    for idx, intent in enumerate(intents):
-        col = cols[idx % 2]
-        with col:
-            if st.button(intent.get("user_question", intent.get("display_name")), key=f"guided-{intent['intent_id']}"):
-                _handle_intent(intent, "guided_history", response_bank)
-                st.session_state["last_intent_id"] = intent["intent_id"]
+        page_key = page_path or "__root__"
+        seen_map: Dict[str, str] = st.session_state.get("guided_auto_prompts", {})
+        already_present = any(
+            msg.get("intent_id") == page_intent["intent_id"] and msg.get("role") == "assistant"
+            for msg in st.session_state.get("guided_history", [])
+        )
+        if seen_map.get(page_key) != page_intent["intent_id"] and not already_present:
+            _handle_intent(page_intent, "guided_history", response_bank)
+            st.session_state["last_intent_id"] = page_intent["intent_id"]
+            st.session_state["guided_auto_prompts"][page_key] = page_intent["intent_id"]
+    else:
+        st.info("No page-specific guided prompt found. Guided mode will activate once intents are available.")
 
     st.markdown("---")
     st.caption("Conversation")
@@ -126,6 +231,8 @@ def _handle_intent(intent: Dict, history_key: str, response_bank: ResponseBank):
 
 def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier):
     st.caption("Type your own question. We classify it to an approved intent and respond only from the response bank.")
+    if not classifier.has_api_key():
+        st.info("Add your OPENAI_API_KEY to a local .env file (see .env.example) and restart to enable free text.")
     user_input = st.text_input("Your question", placeholder="Ask about RSV eligibility, timing, or logistics")
     if st.button("Send", disabled=not classifier.has_api_key() or not user_input.strip()):
         _append_history("free_history", "user", user_input.strip())
@@ -137,6 +244,11 @@ def _render_free_text(response_bank: ResponseBank, classifier: IntentClassifier)
             content = answer_intent.get("response", FALLBACK_RESPONSE)
         _append_history("free_history", "assistant", content, intent_id=result.intent_id if answer_intent else None)
         st.session_state["last_intent_id"] = result.intent_id if answer_intent else None
+
+        if not classifier.has_api_key():
+            st.warning("Free text requests need an OpenAI API key. Add it to a local .env file and restart the app.")
+        elif result.intent_id == "__NO_MATCH__":
+            st.warning("The classifier could not match your question with enough confidence. Try rephrasing or use guided mode.")
 
     st.markdown("---")
     st.caption("Conversation")

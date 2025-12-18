@@ -16,12 +16,18 @@ render_top_nav(active_label="Eligibility")
 
 st.title("Eligibility Scenarios")
 
-st.write(
+st.markdown(
     """
     Use this page to explore how different audiences—such as older adults or pregnant people—might
-    approach RSV vaccination decisions with their clinicians. The chatbot stays strictly within the
-    approved response bank and does not make eligibility decisions.
+    approach RSV vaccination decisions with their clinicians.
+
+    **What you'll find here**
+    - High-level reminders that eligibility is determined with a clinician, not the assistant.
+    - Separate guidance for older adults and pregnancy-related conversations.
+    - Deep links to vaccination timing details so you can continue researching next steps.
+
+    The chatbot stays strictly within the approved response bank and does not make eligibility decisions.
     """
 )
 
-render_chatbot(response_bank, classifier)
+render_chatbot(response_bank, classifier, page_path="pages/3_Eligibility.py")
